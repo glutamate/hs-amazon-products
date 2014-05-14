@@ -12,6 +12,7 @@ module Amazon
     , runAmazonT
 
     , amazonRequest
+    , amazonGet
 
     , module Amazon.Types
     ) where
@@ -26,15 +27,20 @@ import qualified Data.ByteString              as BS
 import qualified Data.ByteString.Base64       as Base64
 import qualified Data.ByteString.Char8        as Char8
 import qualified Data.ByteString.Lazy         as LBS
+import           Data.Conduit
 import           Data.Digest.Pure.SHA
 import           Data.Function
 import           Data.List
+import           Data.String
 import           Data.Text                    as T
 import           Data.Text.Encoding           as TE
 import           Data.Time
+import           Data.XML.Pickle
+import           Data.XML.Types
 import           Network.HTTP.Conduit
 import           Network.HTTP.Types.URI
 import           System.Locale
+import           Text.XML.Unresolved
 
 version :: Text
 version = "2011-08-01"
@@ -81,3 +87,21 @@ amazonRequest opName opParams = do
                                 LBS.fromStrict $ urlEncode True $ TE.encodeUtf8 signTxt
         parseUrl $ (endpointURL amazonEndpoint) ++ "?" ++ (Char8.unpack paramsUrl) ++
                     "&Signature=" ++ (Char8.unpack signature)
+
+amazonGet :: Text -> [(Text, Text)] -> PU [Node] a -> AmazonT (OperationRequest, a)
+amazonGet opName opParams resPickler = do
+        (AmazonConf{..}) <- ask
+        initReq <- amazonRequest opName opParams
+        res <- http initReq amazonManager
+        case responseStatus res of
+            ok200 -> do doc@(Document _ root _) <- responseBody res $$+- sinkDoc def
+                        let out = unpickle resXp (NodeElement root)
+                        case out of
+                            Left  e -> throwError $ ParseFailure $ Just e
+                            Right s -> return s
+    where resName = fromString $ T.unpack $
+                        T.concat ["{http://ecs.amazonaws.com/doc/2011-08-01/}"
+                                 , opName
+                                 , "Response"
+                                 ]
+          resXp   = xpRoot $ xpElemNodes resName $ xpPair xpOperationRequest resPickler
