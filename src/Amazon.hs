@@ -1,12 +1,17 @@
 {-# LANGUAGE DeriveFunctor              #-}
+{-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE OverloadedStrings          #-}
+{-# LANGUAGE RecordWildCards            #-}
 
 module Amazon
     ( liveConf
 
     , AmazonT (..)
     , runAmazonT
+
+    , amazonRequest
 
     , module Amazon.Types
     ) where
@@ -17,10 +22,29 @@ import           Control.Monad.Base
 import           Control.Monad.Error
 import           Control.Monad.Reader
 import           Control.Monad.Trans.Resource
+import qualified Data.ByteString              as BS
+import qualified Data.ByteString.Base64       as Base64
+import qualified Data.ByteString.Char8        as Char8
+import qualified Data.ByteString.Lazy         as LBS
+import           Data.Digest.Pure.SHA
+import           Data.Function
+import           Data.List
+import           Data.Text                    as T
+import           Data.Text.Encoding           as TE
+import           Data.Time
 import           Network.HTTP.Conduit
+import           Network.HTTP.Types.URI
+import           System.Locale
+
+version :: Text
+version = "2011-08-01"
 
 liveConf :: Manager -> AccessID -> AccessSecret -> AssociateTag -> AmazonConf
-liveConf = AmazonConf "https://webservices.amazon.com/onca/xml"
+liveConf = AmazonConf $ AmazonEndpoint
+                        { endpointURL  = "https://webservices.amazon.com/onca/xml"
+                        , endpointHost = "webservices.amazon.com"
+                        , endpointPath = "/onca/xml"
+                        }
 
 newtype AmazonT a = AmazonT
         { unAmazonT :: ResourceT (ReaderT AmazonConf (ErrorT AmazonFailure IO)) a
@@ -32,3 +56,28 @@ newtype AmazonT a = AmazonT
 
 runAmazonT :: AmazonConf -> AmazonT a -> IO (Either AmazonFailure a)
 runAmazonT conf = runErrorT . flip runReaderT conf . runResourceT . unAmazonT
+
+amazonRequest :: (MonadIO m, MonadThrow m, MonadReader AmazonConf m) =>
+                    Text -> [(Text, Text)] -> m Request
+amazonRequest opName opParams = do
+        now <- liftIO $ getCurrentTime
+        (AmazonConf{..}) <- ask
+        let defParams = [ ("AssociateTag", amazonAssociateTag)
+                        , ("AWSAccessKeyId", amazonAccessId)
+                        , ("Operation", opName)
+                        , ("Version", version)
+                        , ("Timestamp", T.pack $ formatTime defaultTimeLocale timeFormat now)
+                        ]
+            fnParams  = sortBy (compare `on` fst) $ defParams ++ opParams
+            paramsTxt = T.intercalate "&" $ fmap (\(k, v) -> T.concat [k, "=", v]) fnParams
+            signTxt   = T.intercalate "\n" [ "GET"
+                                           , endpointHost amazonEndpoint
+                                           , endpointPath amazonEndpoint
+                                           , paramsTxt
+                                           ]
+            paramsUrl = urlEncode True $ TE.encodeUtf8 paramsTxt
+            signature = Base64.encode $ LBS.toStrict $ bytestringDigest $
+                            hmacSha256 amazonAccessSecret $
+                                LBS.fromStrict $ urlEncode True $ TE.encodeUtf8 signTxt
+        parseUrl $ (endpointURL amazonEndpoint) ++ "?" ++ (Char8.unpack paramsUrl) ++
+                    "&Signature=" ++ (Char8.unpack signature)
