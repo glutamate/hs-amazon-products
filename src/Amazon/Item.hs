@@ -1,3 +1,5 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 module Amazon.Item
     ( ItemID
     , SearchIndex
@@ -6,6 +8,9 @@ module Amazon.Item
 
     , itemSearch
     , itemLookup
+
+    , parseCondition
+    , parseIdType
     ) where
 
 import           Amazon
@@ -61,11 +66,41 @@ data SearchIndex = All
                  | Watches
                  | Wireless
                  | WirelessAccessories
-                 deriving (Eq, Show)
+                 deriving (Eq, Show, Read)
 
-data Condition = All | New | Used | Collectible | Refurbished deriving (Eq, Show)
+data Condition = CAll | CNew | CUsed | CCollectible | CRefurbished deriving (Eq)
 
-data IdType = ASIN | SKU | UPC | EAN | ISBN deriving (Eq, Show)
+instance Show Condition where
+    show CAll         = "All"
+    show CNew         = "New"
+    show CUsed        = "Used"
+    show CCollectible = "Collectible"
+    show CRefurbished = "Refurbished"
+
+parseCondition :: Text -> Maybe Condition
+parseCondition "All"         = Just CAll
+parseCondition "New"         = Just CNew
+parseCondition "Used"        = Just CUsed
+parseCondition "Collectible" = Just CCollectible
+parseCondition "Refurbished" = Just CRefurbished
+parseCondition _             = Nothing
+
+data IdType = IdASIN | IdSKU | IdUPC | IdEAN | IdISBN deriving (Eq)
+
+instance Show IdType where
+    show IdASIN = "ASIN"
+    show IdSKU  = "SKU"
+    show IdUPC  = "UPC"
+    show IdEAN  = "EAN"
+    show IdISBN = "ISBN"
+
+parseIdType :: Text -> Maybe IdType
+parseIdType "ASIN" = Just IdASIN
+parseIdType "SKU"  = Just IdSKU
+parseIdType "UPC"  = Just IdUPC
+parseIdType "EAN"  = Just IdEAN
+parseIdType "ISBN" = Just IdISBN
+parseIdType _      = Nothing
 
 itemSearch :: SearchIndex -> Text -> [ResponseGroup] -> Maybe Condition ->
                 Maybe Int -> Maybe Int -> AmazonT Text

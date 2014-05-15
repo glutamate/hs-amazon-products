@@ -38,6 +38,7 @@ import           Data.Time
 import           Data.XML.Pickle
 import           Data.XML.Types
 import           Network.HTTP.Conduit
+import           Network.HTTP.Types.Status
 import           Network.HTTP.Types.URI
 import           System.Locale
 import           Text.XML.Unresolved
@@ -94,14 +95,26 @@ amazonGet opName opParams resPickler = do
         initReq <- amazonRequest opName opParams
         res <- http initReq amazonManager
         case responseStatus res of
-            ok200 -> do doc@(Document _ root _) <- responseBody res $$+- sinkDoc def
-                        let out = unpickle resXp (NodeElement root)
-                        case out of
-                            Left  e -> throwError $ ParseFailure $ Just e
-                            Right s -> return s
-    where resName = fromString $ T.unpack $
-                        T.concat ["{http://ecs.amazonaws.com/doc/2011-08-01/}"
+            s | s == status200 -> handleResult res resXp (return)
+              | otherwise      -> handleResult res errXp (throwError . AmazonFailure . Just)
+    where errName = fromString $ T.unpack $
+                        T.concat [ "{http://ecs.amazonaws.com/doc/2011-08-01/}"
+                                 , opName
+                                 , "ErrorResponse"
+                                 ]
+          errXp   = xpRoot $ xpElemNodes errName $ xpAmazonError
+          resName = fromString $ T.unpack $
+                        T.concat [ "{http://ecs.amazonaws.com/doc/2011-08-01/}"
                                  , opName
                                  , "Response"
                                  ]
           resXp   = xpRoot $ xpElemNodes resName $ xpPair xpOperationRequest resPickler
+
+handleResult :: (MonadThrow m, MonadError AmazonFailure m) =>
+        Response (ResumableSource m BS.ByteString) -> PU Node a -> (a -> m b) -> m b
+handleResult res xpOut constOut = do
+        (Document _ root _) <- responseBody res $$+- sinkDoc def
+        let out = unpickle xpOut (NodeElement root)
+        case out of
+            Left  e -> throwError $ ParseFailure $ Just e
+            Right s -> constOut s
