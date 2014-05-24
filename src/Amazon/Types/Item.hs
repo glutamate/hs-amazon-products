@@ -8,11 +8,20 @@ module Amazon.Types.Item
 
     , parseCondition
     , parseIdType
+
+    , xpItemId
+    , xpSearchIndex
+    , xpCondition
+    , xpIdType
     ) where
 
-import           Data.Text as T
+import           Data.Text       as T
+import           Data.XML.Pickle
 
 type ItemID  = Text
+
+xpItemId :: PU Text ItemID
+xpItemId = xpId
 
 data SearchIndex = All
                  | Apparel
@@ -64,6 +73,9 @@ data SearchIndex = All
                  | WirelessAccessories
                  deriving (Eq, Show, Read)
 
+xpSearchIndex :: PU Text SearchIndex
+xpSearchIndex = xpPrim
+
 data Condition = CAll | CNew | CUsed | CCollectible | CRefurbished deriving (Eq)
 
 instance Show Condition where
@@ -73,13 +85,17 @@ instance Show Condition where
     show CCollectible = "Collectible"
     show CRefurbished = "Refurbished"
 
-parseCondition :: Text -> Maybe Condition
-parseCondition "All"         = Just CAll
-parseCondition "New"         = Just CNew
-parseCondition "Used"        = Just CUsed
-parseCondition "Collectible" = Just CCollectible
-parseCondition "Refurbished" = Just CRefurbished
-parseCondition _             = Nothing
+parseCondition :: Text -> Condition
+parseCondition "All"         = CAll
+parseCondition "New"         = CNew
+parseCondition "Used"        = CUsed
+parseCondition "Collectible" = CCollectible
+parseCondition "Refurbished" = CRefurbished
+
+xpCondition :: PU Text Condition
+xpCondition = PU { unpickleTree = return . parseCondition
+                 , pickleTree   = T.pack . show
+                 }
 
 data IdType = IdASIN | IdSKU | IdUPC | IdEAN | IdISBN deriving (Eq)
 
@@ -90,10 +106,14 @@ instance Show IdType where
     show IdEAN  = "EAN"
     show IdISBN = "ISBN"
 
-parseIdType :: Text -> Maybe IdType
-parseIdType "ASIN" = Just IdASIN
-parseIdType "SKU"  = Just IdSKU
-parseIdType "UPC"  = Just IdUPC
-parseIdType "EAN"  = Just IdEAN
-parseIdType "ISBN" = Just IdISBN
-parseIdType _      = Nothing
+parseIdType :: Text -> IdType
+parseIdType "ASIN" = IdASIN
+parseIdType "SKU"  = IdSKU
+parseIdType "UPC"  = IdUPC
+parseIdType "EAN"  = IdEAN
+parseIdType "ISBN" = IdISBN
+
+xpIdType :: PU Text IdType
+xpIdType = PU { unpickleTree = return . parseIdType
+              , pickleTree   = T.pack . show
+              }
