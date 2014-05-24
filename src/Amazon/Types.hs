@@ -14,10 +14,12 @@ module Amazon.Types
 
     , OperationRequest (..)
     , AmazonError (..)
+    , RequestContainer (..)
 
     , xpResponseGroup
     , xpOperationRequest
     , xpAmazonError
+    , xpRequestContainer
 
     , Parameterize (..)
     ) where
@@ -153,3 +155,19 @@ xpAmazonError =
 
 class Parameterize a where
     toParams :: a -> [(Text, Text)]
+
+----
+
+data RequestContainer a = RequestContainer
+        { requestIsValid :: Bool
+        , requestSubset  :: a
+        } deriving (Eq, Show)
+
+xpRequestContainer :: (Eq a, Show a) => Name -> PU [Node] a -> PU [Node] (RequestContainer a)
+xpRequestContainer elemName xpSubset =
+    xpWrap (\(a, b) -> RequestContainer a b)
+           (\(RequestContainer a b) -> (a, b)) $
+    xp2Tuple
+        (xpElemNodes "{http://ecs.amazonaws.com/doc/2011-08-01/}IsValid" $
+            xpContent xpPrim)
+        (xpElemNodes elemName $ xpSubset)
