@@ -15,8 +15,11 @@ module Amazon.Types
     , OperationRequest (..)
     , AmazonError (..)
 
+    , xpResponseGroup
     , xpOperationRequest
     , xpAmazonError
+
+    , Parameterize (..)
     ) where
 
 import           Control.Monad.Trans.Error (Error, noMsg, strMsg)
@@ -93,7 +96,10 @@ data ResponseGroup = Accessories
                    | VariationMatrix
                    | VariationOffers
                    | VariationSummary
-                   deriving (Eq, Show)
+                   deriving (Eq, Show, Read)
+
+xpResponseGroup :: PU Text ResponseGroup
+xpResponseGroup = xpPrim
 
 data OperationRequest = OperationRequest
         { opHTTPHeaders           :: Map Text Text
@@ -144,3 +150,6 @@ xpAmazonError =
 
           unwrap :: AmazonError -> ((Text, Text), Text)
           unwrap (AmazonError code message reqId) = ((code, message), reqId)
+
+class Parameterize a where
+    toParams :: a -> [(Text, Text)]

@@ -89,10 +89,10 @@ amazonRequest opName opParams = do
         parseUrl $ (endpointURL amazonEndpoint) ++ "?" ++ (Char8.unpack paramsUrl) ++
                     "&Signature=" ++ (Char8.unpack signature)
 
-amazonGet :: Text -> [(Text, Text)] -> PU [Node] a -> AmazonT (OperationRequest, a)
+amazonGet :: (Parameterize a) => Text -> a -> PU [Node] b -> AmazonT (OperationRequest, b)
 amazonGet opName opParams resPickler = do
         (AmazonConf{..}) <- ask
-        initReq <- amazonRequest opName opParams
+        initReq <- amazonRequest opName (toParams opParams)
         res <- http initReq amazonManager
         case responseStatus res of
             s | s == status200 -> handleResult res resXp (return)

@@ -1,22 +1,32 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards   #-}
 
 module Amazon.Types.Item
-    ( ItemID
+    ( ItemLookupRequest (..)
+    , ItemID
     , SearchIndex
     , Condition
     , IdType
+    , VariationPage
 
     , parseCondition
     , parseIdType
+    , parseVariationPage
 
+    , xpItemLookupRequest
     , xpItemId
     , xpSearchIndex
     , xpCondition
     , xpIdType
+    , xpVariationPage
     ) where
 
 import           Data.Text       as T
 import           Data.XML.Pickle
+import           Data.XML.Types
+import           Prelude         as P
+
+import           Amazon.Types
 
 type ItemID  = Text
 
@@ -117,3 +127,51 @@ xpIdType :: PU Text IdType
 xpIdType = PU { unpickleTree = return . parseIdType
               , pickleTree   = T.pack . show
               }
+
+data VariationPage = VPAll
+                   deriving (Eq)
+
+instance Show VariationPage where
+    show VPAll  = "All"
+
+parseVariationPage :: Text -> VariationPage
+parseVariationPage "All"    = VPAll
+
+xpVariationPage :: PU Text VariationPage
+xpVariationPage = PU { unpickleTree = return . parseVariationPage
+                     , pickleTree   = T.pack . show
+                     }
+
+----
+
+data ItemLookupRequest = ItemLookupRequest
+        { lookupCondition      :: Condition
+        , lookupIdType         :: IdType
+        , lookupItemId         :: ItemID
+        , lookupResponseGroups :: [ResponseGroup]
+        , lookupVariationPage  :: VariationPage
+        } deriving (Eq, Show)
+
+xpItemLookupRequest :: PU [Node] ItemLookupRequest
+xpItemLookupRequest =
+    xpWrap (\(a, b, c, d, e) -> ItemLookupRequest a b c d e)
+           (\(ItemLookupRequest a b c d e) -> (a, b, c, d, e)) $
+    xp5Tuple
+        (xpElemNodes "{http://ecs.amazonaws.com/doc/2011-08-01/}Condition" $
+            xpContent xpCondition)
+        (xpElemNodes "{http://ecs.amazonaws.com/doc/2011-08-01/}IdType" $
+            xpContent xpIdType)
+        (xpElemNodes "{http://ecs.amazonaws.com/doc/2011-08-01/}ItemId" $
+            xpContent xpItemId)
+        (xpList $ xpElemNodes "{http://ecs.amazonaws.com/doc/2011-08-01/}ResponseGroup" $
+            xpContent xpResponseGroup)
+        (xpElemNodes "{http://ecs.amazonaws.com/doc/2011-08-01/}VariationPage" $
+            xpContent xpVariationPage)
+
+instance Parameterize ItemLookupRequest where
+    toParams (ItemLookupRequest{..}) =
+        [ ("Condition", (T.pack $ show lookupCondition))
+        , ("IdType", (T.pack $ show lookupIdType))
+        , ("ItemId", (T.pack $ show lookupItemId))
+        , ("ResponseGroup", intercalate "," (P.map (T.pack . show) lookupResponseGroups))
+        ]
