@@ -3,6 +3,7 @@
 
 module Amazon.Types.Item
     ( ItemLookupRequest (..)
+    , Item (..)
     , ItemID
     , SearchIndex
     , Condition
@@ -13,6 +14,7 @@ module Amazon.Types.Item
     , parseIdType
     , parseVariationPage
 
+    , xpItem
     , xpItemLookupRequest
     , xpItemId
     , xpSearchIndex
@@ -175,3 +177,18 @@ instance Parameterize ItemLookupRequest where
         , ("ItemId", (T.pack $ show lookupItemId))
         , ("ResponseGroup", intercalate "," (P.map (T.pack . show) lookupResponseGroups))
         ]
+
+----
+
+data Item = Item
+        { itemASIN       :: Text
+        , itemParentASIN :: Text
+        } deriving (Eq, Show)
+
+xpItem :: PU [Node] Item
+xpItem =
+    xpWrap (\(a, b) -> Item a b)
+           (\(Item a b) -> (a, b)) $
+    xpClean $ xp2Tuple
+        (xpElemText "{http://ecs.amazonaws.com/doc/2011-08-01/}ASIN")
+        (xpElemText "{http://ecs.amazonaws.com/doc/2011-08-01/}ParentASIN")
