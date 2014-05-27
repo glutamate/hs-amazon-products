@@ -50,7 +50,7 @@ version = "2011-08-01"
 
 liveConf :: Manager -> AccessID -> AccessSecret -> AssociateTag -> AmazonConf
 liveConf = AmazonConf $ AmazonEndpoint
-                        { endpointURL  = "https://webservices.amazon.com/onca/xml"
+                        { endpointURL  = "http://webservices.amazon.com/onca/xml"
                         , endpointHost = "webservices.amazon.com"
                         , endpointPath = "/onca/xml"
                         }
@@ -86,7 +86,7 @@ amazonRequest opName opParams = do
                                            , paramsTxt
                                            ]
             paramsUrl = TE.encodeUtf8 paramsTxt
-            signature = Base64.encode $ toBytes $ hmacAlg SHA256
+            signature = urlEncode True $ Base64.encode $ toBytes $ hmacAlg SHA256
                             (LBS.toStrict amazonAccessSecret) (TE.encodeUtf8 signTxt)
         liftIO $ print $ (endpointURL amazonEndpoint) ++ "?" ++ (Char8.unpack paramsUrl) ++
                     "&Signature=" ++ (Char8.unpack signature)

@@ -174,7 +174,7 @@ instance Parameterize ItemLookupRequest where
     toParams (ItemLookupRequest{..}) =
         [ ("Condition", (T.pack $ show lookupCondition))
         , ("IdType", (T.pack $ show lookupIdType))
-        , ("ItemId", (T.pack $ show lookupItemId))
+        , ("ItemId", lookupItemId)
         , ("ResponseGroup", intercalate "," (P.map (T.pack . show) lookupResponseGroups))
         ]
 
