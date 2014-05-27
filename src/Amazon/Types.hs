@@ -33,7 +33,7 @@ import           Data.XML.Types
 import           Network.HTTP.Conduit
 
 timeFormat :: String
-timeFormat = "%Y-%m-%dT%H:%M:%S%QZ"
+timeFormat = "%Y-%m-%dT%H:%M:%S.000Z"
 
 type AccessID     = Text
 type AccessSecret = LBS.ByteString

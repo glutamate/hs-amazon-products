@@ -6,11 +6,14 @@ import           Network.HTTP.Conduit
 import           System.Environment
 
 import           Amazon
+import           Amazon.Item
 
 main :: IO ()
 main = do
-        conf <- getSandbox
-        print $ amazonAccessId conf
+    conf <- getSandbox
+    {-print $ amazonAccessId conf-}
+    res  <- runAmazonT conf $ itemLookup "B00F0DD0I6" IdASIN [ItemAttributes] CAll
+    print res
 
 getSandbox :: IO AmazonConf
 getSandbox = do

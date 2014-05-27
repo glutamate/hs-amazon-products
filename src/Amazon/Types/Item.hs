@@ -5,10 +5,10 @@ module Amazon.Types.Item
     ( ItemLookupRequest (..)
     , Item (..)
     , ItemID
-    , SearchIndex
-    , Condition
-    , IdType
-    , VariationPage
+    , SearchIndex (..)
+    , Condition (..)
+    , IdType (..)
+    , VariationPage (..)
 
     , parseCondition
     , parseIdType

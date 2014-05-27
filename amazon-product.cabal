@@ -35,9 +35,10 @@ library
                     ,   xml-picklers        >=0.3   && <0.4
                     ,   xml-conduit         >=1.2   && <1.3
                     ,   http-types          >=0.8   && <0.9
-                    ,   SHA                 >=1.6   && <1.7
                     ,   base64-bytestring   >=1.0   && <1.1
                     ,   containers          >=0.5   && <0.6
+                    ,   cryptohash          >=0.11  && <0.12
+                    ,   byteable            >=0.1   && <0.2
 
 executable repl
     main-is:            Main.hs

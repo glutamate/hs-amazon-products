@@ -17,18 +17,18 @@ module Amazon
     , module Amazon.Types
     ) where
 
-import           Amazon.Types
 import           Control.Applicative
 import           Control.Monad.Base
 import           Control.Monad.Error
 import           Control.Monad.Reader
 import           Control.Monad.Trans.Resource
+import           Crypto.Hash
+import           Data.Byteable
 import qualified Data.ByteString              as BS
 import qualified Data.ByteString.Base64       as Base64
 import qualified Data.ByteString.Char8        as Char8
 import qualified Data.ByteString.Lazy         as LBS
 import           Data.Conduit
-import           Data.Digest.Pure.SHA
 import           Data.Function
 import           Data.List
 import           Data.String
@@ -42,6 +42,8 @@ import           Network.HTTP.Types.Status
 import           Network.HTTP.Types.URI
 import           System.Locale
 import           Text.XML.Unresolved
+
+import           Amazon.Types
 
 version :: Text
 version = "2011-08-01"
@@ -76,18 +78,23 @@ amazonRequest opName opParams = do
                         , ("Timestamp", T.pack $ formatTime defaultTimeLocale timeFormat now)
                         ]
             fnParams  = sortBy (compare `on` fst) $ defParams ++ opParams
-            paramsTxt = T.intercalate "&" $ fmap (\(k, v) -> T.concat [k, "=", v]) fnParams
+            paramsTxt = T.intercalate "&" $
+                            fmap (\(k, v) -> T.concat [k, "=", (encodeText v)]) fnParams
             signTxt   = T.intercalate "\n" [ "GET"
                                            , endpointHost amazonEndpoint
                                            , endpointPath amazonEndpoint
                                            , paramsTxt
                                            ]
-            paramsUrl = urlEncode True $ TE.encodeUtf8 paramsTxt
-            signature = Base64.encode $ LBS.toStrict $ bytestringDigest $
-                            hmacSha256 amazonAccessSecret $
-                                LBS.fromStrict $ urlEncode True $ TE.encodeUtf8 signTxt
+            paramsUrl = TE.encodeUtf8 paramsTxt
+            signature = Base64.encode $ toBytes $ hmacAlg SHA256
+                            (LBS.toStrict amazonAccessSecret) (TE.encodeUtf8 signTxt)
+        liftIO $ print $ (endpointURL amazonEndpoint) ++ "?" ++ (Char8.unpack paramsUrl) ++
+                    "&Signature=" ++ (Char8.unpack signature)
         parseUrl $ (endpointURL amazonEndpoint) ++ "?" ++ (Char8.unpack paramsUrl) ++
                     "&Signature=" ++ (Char8.unpack signature)
+
+encodeText :: Text -> Text
+encodeText = TE.decodeUtf8 . urlEncode True . TE.encodeUtf8
 
 amazonGet :: (Parameterize a) => Text -> a -> PU [Node] b -> AmazonT (OperationRequest, b)
 amazonGet opName opParams resPickler = do
