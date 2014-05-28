@@ -13,6 +13,7 @@ main = do
     conf <- getSandbox
     {-print $ amazonAccessId conf-}
     res  <- runAmazonT conf $ itemLookup "B00F0DD0I6" IdASIN [ItemAttributes] CAll
+    {-res  <- runAmazonT conf $ itemLookup "B00F0DD0I6" IdASIN [Images] CAll-}
     print res
 
 getSandbox :: IO AmazonConf

@@ -9,6 +9,11 @@ module Amazon.Types.Item
     , Condition (..)
     , IdType (..)
     , VariationPage (..)
+    , Attributes (..)
+    , Dimensions (..)
+
+    , HundredthInch (..)
+    , HundredthPound (..)
 
     , parseCondition
     , parseIdType
@@ -21,6 +26,11 @@ module Amazon.Types.Item
     , xpCondition
     , xpIdType
     , xpVariationPage
+    , xpAttributes
+    , xpDimensions
+
+    , xpHundredthInch
+    , xpHundredthPound
     ) where
 
 import           Data.Text       as T
@@ -183,12 +193,90 @@ instance Parameterize ItemLookupRequest where
 data Item = Item
         { itemASIN       :: Text
         , itemParentASIN :: Maybe Text
+        , itemAttributes :: Maybe Attributes
         } deriving (Eq, Show)
 
 xpItem :: PU [Node] Item
 xpItem =
-    xpWrap (\(a, b) -> Item a b)
-           (\(Item a b) -> (a, b)) $
-    xpClean $ xp2Tuple
+    xpWrap (\(a, b, c) -> Item a b c)
+           (\(Item a b c) -> (a, b, c)) $
+    xpClean $ xp3Tuple
         (xpElemText (nsName "ASIN"))
         (xpOption $ xpElemText (nsName "ParentASIN"))
+        (xpOption $ xpElemNodes (nsName "ItemAttributes") $ xpClean xpAttributes)
+
+----
+
+data Attributes = Attributes
+        { attrBinding            :: Text
+        , attrBrand              :: Text
+        , attrCatalogNumbers     :: [Text]
+        , attrColor              :: Text
+        , attrEAN                :: Int
+        , attrEANList            :: [Int]
+        , attrFeatures           :: [Text]
+        , attrAutographed        :: Bool
+        , attrEligibleForTradeIn :: Bool
+        , attrMemorabilia        :: Bool
+        , attrDimensions         :: Dimensions
+        } deriving (Eq, Show)
+
+xpAttributes :: PU [Node] Attributes
+xpAttributes =
+    xpWrap (\((((((((((a, b), c), d), e), f), g), h), i), j), k)
+            -> Attributes a b c d e f g h i j k)
+           (\(Attributes a b c d e f g h i j k)
+            -> ((((((((((a, b), c), d), e), f), g), h), i), j), k)) $
+        (xpElemText (nsName "Binding"))
+    <#> (xpElemText (nsName "Brand"))
+    <#> (xpElemNodes (nsName "CatalogNumberList") $
+            xpList $ xpElemText (nsName "CatalogNumberListElement"))
+    <#> (xpElemText (nsName "Color"))
+    <#> (xpElemNodes (nsName "EAN") $ xpContent xpPrim)
+    <#> (xpElemNodes (nsName "EANList") $
+            xpList $ xpElemNodes (nsName "EANListElement") $ xpContent xpPrim)
+    <#> (xpList $ xpElemText (nsName "Feature"))
+    <#> (xpElemNodes (nsName "IsAutographed") $ xpContent xpTextBool)
+    <#> (xpElemNodes (nsName "IsEligibleForTradeIn") $ xpContent xpTextBool)
+    <#> (xpElemNodes (nsName "IsMemorabilia") $ xpContent xpTextBool)
+    <#> (xpElemNodes (nsName "ItemDimensions") xpDimensions)
+
+xpTextBool :: PU Text Bool
+xpTextBool = PU up down
+    where up "0" = return False
+          up _   = return True
+          down False = "0"
+          down True  = "1"
+
+----
+
+newtype HundredthInch  = HundredthInch  Int deriving (Eq, Show)
+newtype HundredthPound = HundredthPound Int deriving (Eq, Show)
+
+xpHundredthInch :: PU Text HundredthInch
+xpHundredthInch = PU (return . HundredthInch . read . T.unpack) (T.pack . show)
+
+xpHundredthPound :: PU Text HundredthPound
+xpHundredthPound = PU (return . HundredthPound . read . T.unpack) (T.pack . show)
+
+data Dimensions = Dimensions
+        { dimHeight :: HundredthInch
+        , dimLength :: HundredthInch
+        , dimWidth  :: HundredthInch
+        , dimWeight :: HundredthPound
+        } deriving (Eq, Show)
+
+xpDimensions :: PU [Node] Dimensions
+xpDimensions =
+    xpWrap (\((_, a), (_, b), (_, c), (_, d)) -> Dimensions a b c d)
+           (\(Dimensions a b c d)
+            -> ((Nothing, a), (Nothing, b), (Nothing, c), (Nothing, d))) $
+    xp4Tuple
+        (xpElem (nsName "Height") (xpClean $ xpOption $ xpAttr ("Units") xpId) $
+            xpContent xpHundredthInch)
+        (xpElem (nsName "Length") (xpClean $ xpOption $ xpAttr ("Units") xpId) $
+            xpContent xpHundredthInch)
+        (xpElem (nsName "Width")  (xpClean $ xpOption $ xpAttr ("Units") xpId) $
+            xpContent xpHundredthInch)
+        (xpElem (nsName "Weight") (xpClean $ xpOption $ xpAttr (nsName "Units") xpId) $
+            xpContent xpHundredthPound)
