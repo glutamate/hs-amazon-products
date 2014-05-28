@@ -159,15 +159,15 @@ xpItemLookupRequest =
     xpWrap (\(a, b, c, d, e) -> ItemLookupRequest a b c d e)
            (\(ItemLookupRequest a b c d e) -> (a, b, c, d, e)) $
     xp5Tuple
-        (xpElemNodes "{http://ecs.amazonaws.com/doc/2011-08-01/}Condition" $
+        (xpElemNodes (nsName "Condition") $
             xpContent xpCondition)
-        (xpElemNodes "{http://ecs.amazonaws.com/doc/2011-08-01/}IdType" $
+        (xpElemNodes (nsName "IdType") $
             xpContent xpIdType)
-        (xpElemNodes "{http://ecs.amazonaws.com/doc/2011-08-01/}ItemId" $
+        (xpElemNodes (nsName "ItemId") $
             xpContent xpItemId)
-        (xpList $ xpElemNodes "{http://ecs.amazonaws.com/doc/2011-08-01/}ResponseGroup" $
+        (xpList $ xpElemNodes (nsName "ResponseGroup") $
             xpContent xpResponseGroup)
-        (xpElemNodes "{http://ecs.amazonaws.com/doc/2011-08-01/}VariationPage" $
+        (xpElemNodes (nsName "VariationPage") $
             xpContent xpVariationPage)
 
 instance Parameterize ItemLookupRequest where
@@ -182,7 +182,7 @@ instance Parameterize ItemLookupRequest where
 
 data Item = Item
         { itemASIN       :: Text
-        , itemParentASIN :: Text
+        , itemParentASIN :: Maybe Text
         } deriving (Eq, Show)
 
 xpItem :: PU [Node] Item
@@ -190,5 +190,5 @@ xpItem =
     xpWrap (\(a, b) -> Item a b)
            (\(Item a b) -> (a, b)) $
     xpClean $ xp2Tuple
-        (xpElemText "{http://ecs.amazonaws.com/doc/2011-08-01/}ASIN")
-        (xpElemText "{http://ecs.amazonaws.com/doc/2011-08-01/}ParentASIN")
+        (xpElemText (nsName "ASIN"))
+        (xpOption $ xpElemText (nsName "ParentASIN"))

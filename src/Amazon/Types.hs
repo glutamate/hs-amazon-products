@@ -1,7 +1,8 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 module Amazon.Types
-    ( timeFormat
+    ( nsName
+    , timeFormat
     , AccessID
     , AccessSecret
     , AssociateTag
@@ -31,6 +32,10 @@ import           Data.Text                 as T
 import           Data.XML.Pickle
 import           Data.XML.Types
 import           Network.HTTP.Conduit
+
+nsName :: Text -> Name
+nsName n = Name n (Just "http://webservices.amazon.com/AWSECommerceService/2011-08-01")
+            Nothing
 
 timeFormat :: String
 timeFormat = "%Y-%m-%dT%H:%M:%S.000Z"
@@ -104,34 +109,22 @@ xpResponseGroup :: PU Text ResponseGroup
 xpResponseGroup = xpPrim
 
 data OperationRequest = OperationRequest
-        { opHTTPHeaders           :: Map Text Text
-        , opRequestId             :: Text
+        { opRequestId             :: Text
         , opArguments             :: Map Text Text
         , opRequestProcessingTime :: Double
         } deriving (Eq, Show)
 
 xpOperationRequest :: PU [Node] OperationRequest
 xpOperationRequest =
-    xpWrap wrap unwrap $
-    xp4Tuple
-        (xpElemNodes "{http://ecs.amazonaws.com/doc/2011-08-01/}HTTPHeaders" $
-            xpAll $ xpElemAttrs "{http://ecs.amazonaws.com/doc/2011-08-01/}Header" $
-                xp2Tuple (xpAttr "{http://ecs.amazonaws.com/doc/2011-08-01/}Name" xpId)
-                         (xpAttr "{http://ecs.amazonaws.com/doc/2011-08-01/}Value" xpId))
-        (xpElemText "{http://ecs.amazonaws.com/doc/2011-08-01/}RequestId")
-        (xpElemNodes "{http://ecs.amazonaws.com/doc/2011-08-01/}Arguments" $
-            xpAll $ xpElemAttrs "{http://ecs.amazonaws.com/doc/2011-08-01/}Argument" $
-                xp2Tuple (xpAttr "{http://ecs.amazonaws.com/doc/2011-08-01/}Name" xpId)
-                         (xpAttr "{http://ecs.amazonaws.com/doc/2011-08-01/}Value" xpId))
-        (xpElemText "{http://ecs.amazonaws.com/doc/2011-08-01/}RequestProcessingTime")
-    where wrap :: ([(Text, Text)], Text, [(Text, Text)], Text) -> OperationRequest
-          wrap (headers, reqId, args, pTime) =
-            OperationRequest (Map.fromList headers) reqId (Map.fromList args)
-                (read $ T.unpack pTime)
-
-          unwrap :: OperationRequest -> ([(Text, Text)], Text, [(Text, Text)], Text)
-          unwrap (OperationRequest headers reqId args pTime) =
-            ((Map.toList headers), reqId, (Map.toList args), (T.pack $ show pTime))
+    xpWrap (\(r, a, t) -> OperationRequest r (Map.fromList a) t)
+           (\(OperationRequest r a t) -> (r, (Map.toList a), t)) $
+    xp3Tuple
+        (xpElemText (nsName "RequestId"))
+        (xpElemNodes (nsName "Arguments") $
+            xpList $ xpElemAttrs (nsName "Argument") $
+                xp2Tuple (xpAttr "Name" xpId)
+                         (xpAttr "Value" xpId))
+        (xpElemNodes (nsName "RequestProcessingTime") $ xpContent xpPrim)
 
 data AmazonError = AmazonError
         { errorCode      :: Text
@@ -143,10 +136,10 @@ xpAmazonError :: PU [Node] AmazonError
 xpAmazonError =
     xpWrap wrap unwrap $
     xp2Tuple
-        (xpElemNodes "{http://ecs.amazonaws.com/doc/2011-08-01/}Error" $
-            xp2Tuple (xpElemText "{http://ecs.amazonaws.com/doc/2011-08-01/}Code")
-                     (xpElemText "{http://ecs.amazonaws.com/doc/2011-08-01/}Message"))
-        (xpElemText "{http://ecs.amazonaws.com/doc/2011-08-01/}RequestId")
+        (xpElemNodes (nsName "Error") $
+            xp2Tuple (xpElemText (nsName "Code"))
+                     (xpElemText (nsName "Message")))
+        (xpElemText (nsName "RequestId"))
     where wrap :: ((Text, Text), Text) -> AmazonError
           wrap ((code, message), reqId) = AmazonError code message reqId
 
@@ -168,6 +161,6 @@ xpRequestContainer elemName xpSubset =
     xpWrap (\(a, b) -> RequestContainer a b)
            (\(RequestContainer a b) -> (a, b)) $
     xp2Tuple
-        (xpElemNodes "{http://ecs.amazonaws.com/doc/2011-08-01/}IsValid" $
+        (xpElemNodes (nsName "IsValid") $
             xpContent xpPrim)
         (xpElemNodes elemName $ xpSubset)

@@ -45,6 +45,8 @@ import           Text.XML.Unresolved
 
 import           Amazon.Types
 
+import           Data.Conduit.Binary
+
 version :: Text
 version = "2011-08-01"
 
@@ -105,22 +107,26 @@ amazonGet opName opParams resPickler = do
             s | s == status200 -> handleResult res resXp (return)
               | otherwise      -> handleResult res errXp (throwError . AmazonFailure . Just)
     where errName = fromString $ T.unpack $
-                        T.concat [ "{http://ecs.amazonaws.com/doc/2011-08-01/}"
+                        T.concat [ "{http://webservices.amazon.com/AWSECommerceService/2011-08-01}"
                                  , opName
                                  , "ErrorResponse"
                                  ]
           errXp   = xpRoot $ xpElemNodes errName $ xpAmazonError
           resName = fromString $ T.unpack $
-                        T.concat [ "{http://ecs.amazonaws.com/doc/2011-08-01/}"
+                        T.concat [ "{http://webservices.amazon.com/AWSECommerceService/2011-08-01}"
                                  , opName
                                  , "Response"
                                  ]
-          resXp   = xpRoot $ xpElemNodes resName $ xpPair xpOperationRequest resPickler
+          resXp   = xpRoot $ xpElemNodes resName $
+                        xpPair
+                            (xpElemNodes (nsName "OperationRequest") xpOperationRequest)
+                            resPickler
 
-handleResult :: (MonadThrow m, MonadError AmazonFailure m) =>
+handleResult :: (MonadBase IO m, MonadResource m, MonadThrow m, MonadError AmazonFailure m) =>
         Response (ResumableSource m BS.ByteString) -> PU Node a -> (a -> m b) -> m b
 handleResult res xpOut constOut = do
-        (Document _ root _) <- responseBody res $$+- sinkDoc def
+        doc@(Document _ root _) <- responseBody res $$+- sinkDoc def
+        renderBytes def doc $$ sinkFile "output.xml"
         let out = unpickle xpOut (NodeElement root)
         case out of
             Left  e -> throwError $ ParseFailure $ Just e

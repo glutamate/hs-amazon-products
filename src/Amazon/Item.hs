@@ -21,5 +21,5 @@ itemLookup :: ItemID -> IdType -> [ResponseGroup] -> Condition ->
                 AmazonT (OperationRequest, Item)
 itemLookup iid iType resGroup cond = amazonGet "ItemLookup" req xpLookup
     where req      = ItemLookupRequest cond iType iid resGroup VPAll
-          xpLookup = xpElemNodes "{http://ecs.amazonaws.com/doc/2011-08-01/}Items" $
-                        xpClean $ xpItem
+          xpLookup = xpElemNodes (nsName "Items") $ xpClean $
+            xpElemNodes (nsName "Item") xpItem
