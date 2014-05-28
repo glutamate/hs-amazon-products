@@ -45,8 +45,6 @@ import           Text.XML.Unresolved
 
 import           Amazon.Types
 
-import           Data.Conduit.Binary
-
 version :: Text
 version = "2011-08-01"
 
@@ -90,8 +88,6 @@ amazonRequest opName opParams = do
             paramsUrl = TE.encodeUtf8 paramsTxt
             signature = urlEncode True $ Base64.encode $ toBytes $ hmacAlg SHA256
                             (LBS.toStrict amazonAccessSecret) (TE.encodeUtf8 signTxt)
-        liftIO $ print $ (endpointURL amazonEndpoint) ++ "?" ++ (Char8.unpack paramsUrl) ++
-                    "&Signature=" ++ (Char8.unpack signature)
         parseUrl $ (endpointURL amazonEndpoint) ++ "?" ++ (Char8.unpack paramsUrl) ++
                     "&Signature=" ++ (Char8.unpack signature)
 
@@ -126,7 +122,6 @@ handleResult :: (MonadBase IO m, MonadResource m, MonadThrow m, MonadError Amazo
         Response (ResumableSource m BS.ByteString) -> PU Node a -> (a -> m b) -> m b
 handleResult res xpOut constOut = do
         doc@(Document _ root _) <- responseBody res $$+- sinkDoc def
-        renderBytes def doc $$ sinkFile "output.xml"
         let out = unpickle xpOut (NodeElement root)
         case out of
             Left  e -> throwError $ ParseFailure $ Just e

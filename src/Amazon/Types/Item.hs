@@ -11,6 +11,7 @@ module Amazon.Types.Item
     , VariationPage (..)
     , Attributes (..)
     , Dimensions (..)
+    , ListPrice (..)
 
     , HundredthInch (..)
     , HundredthPound (..)
@@ -28,6 +29,7 @@ module Amazon.Types.Item
     , xpVariationPage
     , xpAttributes
     , xpDimensions
+    , xpListPrice
 
     , xpHundredthInch
     , xpHundredthPound
@@ -219,14 +221,29 @@ data Attributes = Attributes
         , attrEligibleForTradeIn :: Bool
         , attrMemorabilia        :: Bool
         , attrDimensions         :: Dimensions
+        , attrLabel              :: Text
+        , attrLegalDisclaimer    :: Text
+        , attrListPrice          :: ListPrice
+        , attrManufacturer       :: Text
+        , attrModel              :: Text
+        , attrMPN                :: Text
+        , attrNumberOfItems      :: Int
+        , attrPackageDimensions  :: Dimensions
+        , attrPackageQuantity    :: Int
+        , attrPartNumber         :: Text
+        , attrProductGroup       :: Text
+        , attrProductTypeName    :: Text
+        , attrTitle              :: Text
+        , attrUPC                :: Int
+        , attrUPCList            :: [Int]
         } deriving (Eq, Show)
 
 xpAttributes :: PU [Node] Attributes
 xpAttributes =
-    xpWrap (\((((((((((a, b), c), d), e), f), g), h), i), j), k)
-            -> Attributes a b c d e f g h i j k)
-           (\(Attributes a b c d e f g h i j k)
-            -> ((((((((((a, b), c), d), e), f), g), h), i), j), k)) $
+    xpWrap (\(((((((((((((((((((((((((a, b), c), d), e), f), g), h), i), j), k), l), m), n), o), p), q), r), s), t), u), v), x), y), z), aa)
+            -> Attributes a b c d e f g h i j k l m n o p q r s t u v x y z aa)
+           (\(Attributes a b c d e f g h i j k l m n o p q r s t u v x y z aa)
+            -> (((((((((((((((((((((((((a, b), c), d), e), f), g), h), i), j), k), l), m), n), o), p), q), r), s), t), u), v), x), y), z), aa)) $
         (xpElemText (nsName "Binding"))
     <#> (xpElemText (nsName "Brand"))
     <#> (xpElemNodes (nsName "CatalogNumberList") $
@@ -240,6 +257,22 @@ xpAttributes =
     <#> (xpElemNodes (nsName "IsEligibleForTradeIn") $ xpContent xpTextBool)
     <#> (xpElemNodes (nsName "IsMemorabilia") $ xpContent xpTextBool)
     <#> (xpElemNodes (nsName "ItemDimensions") xpDimensions)
+    <#> (xpElemText (nsName "Label"))
+    <#> (xpElemText (nsName "LegalDisclaimer"))
+    <#> (xpElemNodes (nsName "ListPrice") xpListPrice)
+    <#> (xpElemText (nsName "Manufacturer"))
+    <#> (xpElemText (nsName "Model"))
+    <#> (xpElemText (nsName "MPN"))
+    <#> (xpElemNodes (nsName "NumberOfItems") $ xpContent xpPrim)
+    <#> (xpElemNodes (nsName "PackageDimensions") xpDimensions)
+    <#> (xpElemNodes (nsName "PackageQuantity") $ xpContent xpPrim)
+    <#> (xpElemText (nsName "PartNumber"))
+    <#> (xpElemText (nsName "ProductGroup"))
+    <#> (xpElemText (nsName "ProductTypeName"))
+    <#> (xpElemText (nsName "Title"))
+    <#> (xpElemNodes (nsName "UPC") $ xpContent xpPrim)
+    <#> (xpElemNodes (nsName "UPCList") $
+            xpList $ xpElemNodes (nsName "UPCListElement") $ xpContent xpPrim)
 
 xpTextBool :: PU Text Bool
 xpTextBool = PU up down
@@ -280,3 +313,20 @@ xpDimensions =
             xpContent xpHundredthInch)
         (xpElem (nsName "Weight") (xpClean $ xpOption $ xpAttr (nsName "Units") xpId) $
             xpContent xpHundredthPound)
+
+----
+
+data ListPrice = ListPrice
+        { listAmount         :: Int
+        , listCurrencyCode   :: Text
+        , listFormattedPrice :: Text
+        } deriving (Eq, Show)
+
+xpListPrice :: PU [Node] ListPrice
+xpListPrice =
+    xpWrap (\(a, b, c) -> ListPrice a b c)
+           (\(ListPrice a b c) -> (a, b, c)) $
+    xp3Tuple
+        (xpElemNodes (nsName "Amount") $ xpContent xpPrim)
+        (xpElemText (nsName "CurrencyCode"))
+        (xpElemText (nsName "FormattedPrice"))
