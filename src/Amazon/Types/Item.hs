@@ -9,6 +9,8 @@ module Amazon.Types.Item
     , Condition (..)
     , IdType (..)
     , VariationPage (..)
+    , ImageSetType (..)
+    , ImageSet (..)
     , Attributes (..)
     , Dimensions (..)
     , ListPrice (..)
@@ -27,6 +29,8 @@ module Amazon.Types.Item
     , xpCondition
     , xpIdType
     , xpVariationPage
+    , xpImageSetType
+    , xpImageSet
     , xpAttributes
     , xpDimensions
     , xpListPrice
@@ -196,16 +200,21 @@ data Item = Item
         { itemASIN       :: Text
         , itemParentASIN :: Maybe Text
         , itemAttributes :: Maybe Attributes
+        , itemImageSets  :: Maybe [ImageSet]
         } deriving (Eq, Show)
 
 xpItem :: PU [Node] Item
 xpItem =
-    xpWrap (\(a, b, c) -> Item a b c)
-           (\(Item a b c) -> (a, b, c)) $
-    xpClean $ xp3Tuple
+    xpWrap (\(a, b, c, d) -> Item a b c (fmap (fmap removeTuple) d))
+           (\(Item a b c d) -> (a, b, c, (fmap (fmap addTuple) d))) $
+    xpClean $ xp4Tuple
         (xpElemText (nsName "ASIN"))
         (xpOption $ xpElemText (nsName "ParentASIN"))
         (xpOption $ xpElemNodes (nsName "ItemAttributes") $ xpClean xpAttributes)
+        (xpOption $ xpElemNodes (nsName "ImageSets") $
+            xpList $ xpElem (nsName "ImageSet") (xpAttr ("Category") xpId) xpImageSet)
+    where removeTuple (_,d) =     d
+          addTuple       d  = ("",d)
 
 ----
 
@@ -330,3 +339,41 @@ xpListPrice =
         (xpElemNodes (nsName "Amount") $ xpContent xpPrim)
         (xpElemText (nsName "CurrencyCode"))
         (xpElemText (nsName "FormattedPrice"))
+
+----
+
+data ImageSetType = ISPrimary | ISVariant deriving (Eq)
+
+instance Show ImageSetType where
+    show ISPrimary = "primary"
+    show ISVariant = "variant"
+
+parseImageSetType :: Text -> ImageSetType
+parseImageSetType "primary" = ISPrimary
+parseImageSetType "variant" = ISVariant
+
+xpImageSetType :: PU Text ImageSetType
+xpImageSetType = PU { unpickleTree = return . parseImageSetType
+                    , pickleTree   = T.pack . show
+                    }
+
+data ImageSet = ImageSet
+        { isetSwatchUrl    :: Text
+        , isetThumbnailUrl :: Text
+        , isetTinyUrl      :: Text
+        , isetSmallUrl     :: Text
+        , isetMediumUrl    :: Text
+        , isetLargeUrl     :: Text
+        } deriving (Eq, Show)
+
+xpImageSet :: PU [Node] ImageSet
+xpImageSet =
+    xpWrap (\(a, b, c, d, e, f) -> ImageSet a b c d e f)
+           (\(ImageSet a b c d e f) -> (a, b, c, d, e, f)) $
+    xp6Tuple
+        (xpElemNodes (nsName "SwatchImage")     $ xpClean $ xpElemText (nsName "URL"))
+        (xpElemNodes (nsName "ThumbnailImage")  $ xpClean $ xpElemText (nsName "URL"))
+        (xpElemNodes (nsName "TinyImage")       $ xpClean $ xpElemText (nsName "URL"))
+        (xpElemNodes (nsName "SmallImage")      $ xpClean $ xpElemText (nsName "URL"))
+        (xpElemNodes (nsName "MediumImage")     $ xpClean $ xpElemText (nsName "URL"))
+        (xpElemNodes (nsName "LargeImage")      $ xpClean $ xpElemText (nsName "URL"))
