@@ -11,9 +11,8 @@ import           Amazon.Item
 main :: IO ()
 main = do
     conf <- getSandbox
-    {-print $ amazonAccessId conf-}
-    res  <- runAmazonT conf $ itemLookup "B00F0DD0I6" IdASIN [Images, ItemAttributes] CAll
-    {-res  <- runAmazonT conf $ itemLookup "B00F0DD0I6" IdASIN [Images] CAll-}
+    {-res  <- runAmazonT conf $ itemLookup "B00F0DD0I6" IdASIN [Images, ItemAttributes] CAll-}
+    res  <- runAmazonT conf $ itemLookup "B00EV97UD6" IdASIN [Images, ItemAttributes] CAll
     print res
 
 getSandbox :: IO AmazonConf

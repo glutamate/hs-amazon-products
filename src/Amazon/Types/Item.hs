@@ -221,30 +221,30 @@ xpItem =
 data Attributes = Attributes
         { attrBinding            :: Text
         , attrBrand              :: Text
-        , attrCatalogNumbers     :: [Text]
+        , attrCatalogNumbers     :: Maybe [Text]
         , attrColor              :: Text
         , attrEAN                :: Int
         , attrEANList            :: [Int]
         , attrFeatures           :: [Text]
-        , attrAutographed        :: Bool
-        , attrEligibleForTradeIn :: Bool
-        , attrMemorabilia        :: Bool
+        , attrAutographed        :: Maybe Bool
+        , attrEligibleForTradeIn :: Maybe Bool
+        , attrMemorabilia        :: Maybe Bool
         , attrDimensions         :: Dimensions
         , attrLabel              :: Text
-        , attrLegalDisclaimer    :: Text
+        , attrLegalDisclaimer    :: Maybe Text
         , attrListPrice          :: ListPrice
         , attrManufacturer       :: Text
         , attrModel              :: Text
         , attrMPN                :: Text
-        , attrNumberOfItems      :: Int
+        , attrNumberOfItems      :: Maybe Int
         , attrPackageDimensions  :: Dimensions
         , attrPackageQuantity    :: Int
         , attrPartNumber         :: Text
         , attrProductGroup       :: Text
         , attrProductTypeName    :: Text
         , attrTitle              :: Text
-        , attrUPC                :: Int
-        , attrUPCList            :: [Int]
+        , attrUPC                :: Maybe Int
+        , attrUPCList            :: Maybe [Int]
         } deriving (Eq, Show)
 
 xpAttributes :: PU [Node] Attributes
@@ -255,32 +255,32 @@ xpAttributes =
             -> (((((((((((((((((((((((((a, b), c), d), e), f), g), h), i), j), k), l), m), n), o), p), q), r), s), t), u), v), x), y), z), aa)) $
         (xpElemText (nsName "Binding"))
     <#> (xpElemText (nsName "Brand"))
-    <#> (xpElemNodes (nsName "CatalogNumberList") $
+    <#> (xpOption $ xpElemNodes (nsName "CatalogNumberList") $
             xpList $ xpElemText (nsName "CatalogNumberListElement"))
     <#> (xpElemText (nsName "Color"))
     <#> (xpElemNodes (nsName "EAN") $ xpContent xpPrim)
     <#> (xpElemNodes (nsName "EANList") $
             xpList $ xpElemNodes (nsName "EANListElement") $ xpContent xpPrim)
     <#> (xpList $ xpElemText (nsName "Feature"))
-    <#> (xpElemNodes (nsName "IsAutographed") $ xpContent xpTextBool)
-    <#> (xpElemNodes (nsName "IsEligibleForTradeIn") $ xpContent xpTextBool)
-    <#> (xpElemNodes (nsName "IsMemorabilia") $ xpContent xpTextBool)
+    <#> (xpOption $ xpElemNodes (nsName "IsAutographed") $ xpContent xpTextBool)
+    <#> (xpOption $ xpElemNodes (nsName "IsEligibleForTradeIn") $ xpContent xpTextBool)
+    <#> (xpOption $ xpElemNodes (nsName "IsMemorabilia") $ xpContent xpTextBool)
     <#> (xpElemNodes (nsName "ItemDimensions") xpDimensions)
     <#> (xpElemText (nsName "Label"))
-    <#> (xpElemText (nsName "LegalDisclaimer"))
+    <#> (xpOption $ xpElemText (nsName "LegalDisclaimer"))
     <#> (xpElemNodes (nsName "ListPrice") xpListPrice)
     <#> (xpElemText (nsName "Manufacturer"))
     <#> (xpElemText (nsName "Model"))
     <#> (xpElemText (nsName "MPN"))
-    <#> (xpElemNodes (nsName "NumberOfItems") $ xpContent xpPrim)
+    <#> (xpOption $ xpElemNodes (nsName "NumberOfItems") $ xpContent xpPrim)
     <#> (xpElemNodes (nsName "PackageDimensions") xpDimensions)
     <#> (xpElemNodes (nsName "PackageQuantity") $ xpContent xpPrim)
     <#> (xpElemText (nsName "PartNumber"))
     <#> (xpElemText (nsName "ProductGroup"))
     <#> (xpElemText (nsName "ProductTypeName"))
     <#> (xpElemText (nsName "Title"))
-    <#> (xpElemNodes (nsName "UPC") $ xpContent xpPrim)
-    <#> (xpElemNodes (nsName "UPCList") $
+    <#> (xpOption $ xpElemNodes (nsName "UPC") $ xpContent xpPrim)
+    <#> (xpOption $ xpElemNodes (nsName "UPCList") $
             xpList $ xpElemNodes (nsName "UPCListElement") $ xpContent xpPrim)
 
 xpTextBool :: PU Text Bool
@@ -302,26 +302,28 @@ xpHundredthPound :: PU Text HundredthPound
 xpHundredthPound = PU (return . HundredthPound . read . T.unpack) (T.pack . show)
 
 data Dimensions = Dimensions
-        { dimHeight :: HundredthInch
-        , dimLength :: HundredthInch
-        , dimWidth  :: HundredthInch
-        , dimWeight :: HundredthPound
+        { dimHeight :: Maybe HundredthInch
+        , dimLength :: Maybe HundredthInch
+        , dimWidth  :: Maybe HundredthInch
+        , dimWeight :: Maybe HundredthPound
         } deriving (Eq, Show)
 
 xpDimensions :: PU [Node] Dimensions
 xpDimensions =
-    xpWrap (\((_, a), (_, b), (_, c), (_, d)) -> Dimensions a b c d)
-           (\(Dimensions a b c d)
-            -> ((Nothing, a), (Nothing, b), (Nothing, c), (Nothing, d))) $
+    xpWrap (\(a, b, c, d) -> Dimensions (rt a) (rt b) (rt c) (rt d))
+           (\(Dimensions a b c d) -> ((at a), (at b), (at c), (at d))) $
     xp4Tuple
-        (xpElem (nsName "Height") (xpClean $ xpOption $ xpAttr ("Units") xpId) $
+        (xpOption $ xpElem (nsName "Height") (xpClean $ xpOption $ xpAttr ("Units") xpId) $
             xpContent xpHundredthInch)
-        (xpElem (nsName "Length") (xpClean $ xpOption $ xpAttr ("Units") xpId) $
+        (xpOption $ xpElem (nsName "Length") (xpClean $ xpOption $ xpAttr ("Units") xpId) $
             xpContent xpHundredthInch)
-        (xpElem (nsName "Width")  (xpClean $ xpOption $ xpAttr ("Units") xpId) $
+        (xpOption $ xpElem (nsName "Width")  (xpClean $ xpOption $ xpAttr ("Units") xpId) $
             xpContent xpHundredthInch)
-        (xpElem (nsName "Weight") (xpClean $ xpOption $ xpAttr (nsName "Units") xpId) $
-            xpContent xpHundredthPound)
+        (xpOption $
+            xpElem (nsName "Weight") (xpClean $ xpOption $ xpAttr (nsName "Units") xpId) $
+                xpContent xpHundredthPound)
+    where rt = fmap (\(_, v) -> v)
+          at = fmap (\v -> (Nothing, v))
 
 ----
 
