@@ -3,6 +3,7 @@
 
 module Amazon.Types.Item
     ( ItemLookupRequest (..)
+    , ItemSearchRequest (..)
     , Item (..)
     , ItemID
     , SearchIndex (..)
@@ -24,6 +25,7 @@ module Amazon.Types.Item
 
     , xpItem
     , xpItemLookupRequest
+    , xpItemSearchRequest
     , xpItemId
     , xpSearchIndex
     , xpCondition
@@ -196,6 +198,43 @@ instance Parameterize ItemLookupRequest where
 
 ----
 
+data ItemSearchRequest = ItemSearchRequest
+        { searchCondition      :: Condition
+        , searchKeywords       :: Text
+        , searchResponseGroups :: [ResponseGroup]
+        , searchIndex          :: SearchIndex
+        , searchMaxPrice       :: Maybe Int
+        , searchMinPrice       :: Maybe Int
+        } deriving (Eq, Show)
+
+xpItemSearchRequest :: PU [Node] ItemSearchRequest
+xpItemSearchRequest =
+    xpWrap (\(a, b, c, d, e, f) -> ItemSearchRequest a b c d e f)
+           (\(ItemSearchRequest a b c d e f) -> (a, b, c, d, e, f)) $
+    xp6Tuple
+        (xpElemNodes (nsName "Condition") $
+            xpContent xpCondition)
+        (xpElemText (nsName "Keywords"))
+        (xpList $ xpElemNodes (nsName "ResponseGroup") $
+            xpContent xpResponseGroup)
+        (xpElemNodes (nsName "SearchIndex") $
+            xpContent xpSearchIndex)
+        (xpElemNodes (nsName "MaximumPrice") $ xpContent xpPrim)
+        (xpElemNodes (nsName "MinimumPrice") $ xpContent xpPrim)
+
+instance Parameterize ItemSearchRequest where
+    toParams (ItemSearchRequest{..}) =
+        [ ("Condition", (T.pack $ show searchCondition))
+        , ("Keywords", searchKeywords)
+        , ("ResponseGroup", intercalate "," (P.map (T.pack . show) searchResponseGroups))
+        , ("SearchIndex", (T.pack $ show searchIndex))
+        ] ++ P.concatMap hPrice [ ("MaximumPrice", searchMaxPrice)
+                                , ("MinimumPrice", searchMinPrice) ]
+        where hPrice (_, Nothing) = []
+              hPrice (n, Just  v) = [(n, (T.pack $ show v))]
+
+----
+
 data Item = Item
         { itemASIN       :: Text
         , itemParentASIN :: Maybe Text
@@ -222,24 +261,24 @@ data Attributes = Attributes
         { attrBinding            :: Text
         , attrBrand              :: Text
         , attrCatalogNumbers     :: Maybe [Text]
-        , attrColor              :: Text
+        , attrColor              :: Maybe Text
         , attrEAN                :: Int
         , attrEANList            :: [Int]
         , attrFeatures           :: [Text]
         , attrAutographed        :: Maybe Bool
         , attrEligibleForTradeIn :: Maybe Bool
         , attrMemorabilia        :: Maybe Bool
-        , attrDimensions         :: Dimensions
+        , attrDimensions         :: Maybe Dimensions
         , attrLabel              :: Text
         , attrLegalDisclaimer    :: Maybe Text
         , attrListPrice          :: ListPrice
-        , attrManufacturer       :: Text
-        , attrModel              :: Text
-        , attrMPN                :: Text
+        , attrManufacturer       :: Maybe Text
+        , attrModel              :: Maybe Text
+        , attrMPN                :: Maybe Text
         , attrNumberOfItems      :: Maybe Int
         , attrPackageDimensions  :: Dimensions
         , attrPackageQuantity    :: Int
-        , attrPartNumber         :: Text
+        , attrPartNumber         :: Maybe Text
         , attrProductGroup       :: Text
         , attrProductTypeName    :: Text
         , attrTitle              :: Text
@@ -257,7 +296,7 @@ xpAttributes =
     <#> (xpElemText (nsName "Brand"))
     <#> (xpOption $ xpElemNodes (nsName "CatalogNumberList") $
             xpList $ xpElemText (nsName "CatalogNumberListElement"))
-    <#> (xpElemText (nsName "Color"))
+    <#> (xpOption $ xpElemText (nsName "Color"))
     <#> (xpElemNodes (nsName "EAN") $ xpContent xpPrim)
     <#> (xpElemNodes (nsName "EANList") $
             xpList $ xpElemNodes (nsName "EANListElement") $ xpContent xpPrim)
@@ -265,17 +304,17 @@ xpAttributes =
     <#> (xpOption $ xpElemNodes (nsName "IsAutographed") $ xpContent xpTextBool)
     <#> (xpOption $ xpElemNodes (nsName "IsEligibleForTradeIn") $ xpContent xpTextBool)
     <#> (xpOption $ xpElemNodes (nsName "IsMemorabilia") $ xpContent xpTextBool)
-    <#> (xpElemNodes (nsName "ItemDimensions") xpDimensions)
+    <#> (xpOption $ xpElemNodes (nsName "ItemDimensions") xpDimensions)
     <#> (xpElemText (nsName "Label"))
     <#> (xpOption $ xpElemText (nsName "LegalDisclaimer"))
     <#> (xpElemNodes (nsName "ListPrice") xpListPrice)
-    <#> (xpElemText (nsName "Manufacturer"))
-    <#> (xpElemText (nsName "Model"))
-    <#> (xpElemText (nsName "MPN"))
+    <#> (xpOption $ xpElemText (nsName "Manufacturer"))
+    <#> (xpOption $ xpElemText (nsName "Model"))
+    <#> (xpOption $ xpElemText (nsName "MPN"))
     <#> (xpOption $ xpElemNodes (nsName "NumberOfItems") $ xpContent xpPrim)
     <#> (xpElemNodes (nsName "PackageDimensions") xpDimensions)
     <#> (xpElemNodes (nsName "PackageQuantity") $ xpContent xpPrim)
-    <#> (xpElemText (nsName "PartNumber"))
+    <#> (xpOption $ xpElemText (nsName "PartNumber"))
     <#> (xpElemText (nsName "ProductGroup"))
     <#> (xpElemText (nsName "ProductTypeName"))
     <#> (xpElemText (nsName "Title"))
