@@ -17,6 +17,7 @@ library
     default-language:   Haskell2010
     exposed-modules:    Amazon
                     ,   Amazon.Item
+                    ,   Amazon.Utils
                     ,   Amazon.Types
                     ,   Amazon.Types.Item
     
