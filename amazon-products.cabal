@@ -1,6 +1,6 @@
 
 name:                amazon-products
-version:             0.1.0.0
+version:             0.1.0.1
 synopsis:            Connector for Amazon Products API
 description:         Allows users to directly access Amazon Products API,
                      without having to work with the underlying REST and
@@ -12,6 +12,13 @@ maintainer:          andrewrademacher@gmail.com
 category:            Web
 build-type:          Simple
 cabal-version:       >=1.10
+
+homepage:            https://github.com/AndrewRademacher/hs-amazon-products
+bug-reports:         https://github.com/AndrewRademacher/hs-amazon-products/issues
+
+source-repository head
+    type:            git
+    location:        https://github.com/AndrewRademacher/hs-amazon-products.git
 
 library
     hs-source-dirs:     src
