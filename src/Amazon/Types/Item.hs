@@ -41,10 +41,12 @@ module Amazon.Types.Item
     , xpHundredthPound
     ) where
 
+import Control.Category
+
 import           Data.Text       as T
 import           Data.XML.Pickle
 import           Data.XML.Types
-import           Prelude         as P
+import           Prelude         as P hiding ((.))
 
 import           Amazon.Types
 
@@ -205,12 +207,13 @@ data ItemSearchRequest = ItemSearchRequest
         , searchIndex          :: SearchIndex
         , searchMaxPrice       :: Maybe Int
         , searchMinPrice       :: Maybe Int
+        , searchPage           :: Maybe Int
         } deriving (Eq, Show)
 
 xpItemSearchRequest :: PU [Node] ItemSearchRequest
 xpItemSearchRequest =
-    xpWrap (\(a, b, c, d, e, f) -> ItemSearchRequest a b c d e f)
-           (\(ItemSearchRequest a b c d e f) -> (a, b, c, d, e, f)) $
+    xpWrap (\(a, b, c, d, e, (f, g)) -> ItemSearchRequest a b c d e f g)
+           (\(ItemSearchRequest a b c d e f g) -> (a, b, c, d, e, (f, g))) $
     xp6Tuple
         (xpElemNodes (nsName "Condition") $
             xpContent xpCondition)
@@ -220,7 +223,9 @@ xpItemSearchRequest =
         (xpElemNodes (nsName "SearchIndex") $
             xpContent xpSearchIndex)
         (xpElemNodes (nsName "MaximumPrice") $ xpContent xpPrim)
-        (xpElemNodes (nsName "MinimumPrice") $ xpContent xpPrim)
+        (xp2Tuple
+          (xpElemNodes (nsName "MinimumPrice") $ xpContent xpPrim)
+          (xpElemNodes (nsName "ItemPage") $ xpContent xpPrim))
 
 instance Parameterize ItemSearchRequest where
     toParams (ItemSearchRequest{..}) =
@@ -228,27 +233,31 @@ instance Parameterize ItemSearchRequest where
         , ("Keywords", searchKeywords)
         , ("ResponseGroup", intercalate "," (P.map (T.pack . show) searchResponseGroups))
         , ("SearchIndex", (T.pack $ show searchIndex))
-        ] ++ P.concatMap hPrice [ ("MaximumPrice", searchMaxPrice)
-                                , ("MinimumPrice", searchMinPrice) ]
-        where hPrice (_, Nothing) = []
-              hPrice (n, Just  v) = [(n, (T.pack $ show v))]
+        ] +? ("MaximumPrice", searchMaxPrice)
+          +? ("MinimumPrice", searchMinPrice)
+          +? ("ItemPage",     searchPage)
+      where
+        lst +? (_, Nothing) = lst
+        lst +? (n, Just v)  = lst ++ [(n, T.pack $ show v)]
 
 ----
 
 data Item = Item
         { itemASIN       :: Text
         , itemParentASIN :: Maybe Text
+        , itemDetailURL  :: Maybe Text
         , itemAttributes :: Maybe Attributes
         , itemImageSets  :: Maybe [ImageSet]
         } deriving (Eq, Show)
 
 xpItem :: PU [Node] Item
 xpItem =
-    xpWrap (\(a, b, c, d) -> Item a b c (fmap (fmap removeTuple) d))
-           (\(Item a b c d) -> (a, b, c, (fmap (fmap addTuple) d))) $
-    xpClean $ xp4Tuple
+    xpWrap (\(a, b, c, d, e) -> Item a b c d (fmap (fmap removeTuple) e))
+           (\(Item a b c d e) -> (a, b, c, d, (fmap (fmap addTuple) e))) $
+    xpClean $ xp5Tuple
         (xpElemText (nsName "ASIN"))
         (xpOption $ xpElemText (nsName "ParentASIN"))
+        (xpOption $ xpElemText (nsName "DetailPageURL"))
         (xpOption $ xpElemNodes (nsName "ItemAttributes") $ xpClean xpAttributes)
         (xpOption $ xpElemNodes (nsName "ImageSets") $
             xpList $ xpElem (nsName "ImageSet") (xpAttr ("Category") xpId) xpImageSet)
@@ -258,30 +267,30 @@ xpItem =
 ----
 
 data Attributes = Attributes
-        { attrBinding            :: Text
-        , attrBrand              :: Text
+        { attrBinding            :: Maybe Text
+        , attrBrand              :: Maybe Text
         , attrCatalogNumbers     :: Maybe [Text]
         , attrColor              :: Maybe Text
-        , attrEAN                :: Int
-        , attrEANList            :: [Int]
-        , attrFeatures           :: [Text]
+        , attrEAN                :: Maybe Int
+        , attrEANList            :: Maybe [Int]
+        , attrFeatures           :: Maybe [Text]
         , attrAutographed        :: Maybe Bool
         , attrEligibleForTradeIn :: Maybe Bool
         , attrMemorabilia        :: Maybe Bool
         , attrDimensions         :: Maybe Dimensions
-        , attrLabel              :: Text
+        , attrLabel              :: Maybe Text
         , attrLegalDisclaimer    :: Maybe Text
-        , attrListPrice          :: ListPrice
+        , attrListPrice          :: Maybe ListPrice
         , attrManufacturer       :: Maybe Text
         , attrModel              :: Maybe Text
         , attrMPN                :: Maybe Text
         , attrNumberOfItems      :: Maybe Int
-        , attrPackageDimensions  :: Dimensions
-        , attrPackageQuantity    :: Int
+        , attrPackageDimensions  :: Maybe Dimensions
+        , attrPackageQuantity    :: Maybe Int
         , attrPartNumber         :: Maybe Text
-        , attrProductGroup       :: Text
-        , attrProductTypeName    :: Text
-        , attrTitle              :: Text
+        , attrProductGroup       :: Maybe Text
+        , attrProductTypeName    :: Maybe Text
+        , attrTitle              :: Maybe Text
         , attrUPC                :: Maybe Int
         , attrUPCList            :: Maybe [Int]
         } deriving (Eq, Show)
@@ -292,32 +301,32 @@ xpAttributes =
             -> Attributes a b c d e f g h i j k l m n o p q r s t u v x y z aa)
            (\(Attributes a b c d e f g h i j k l m n o p q r s t u v x y z aa)
             -> (((((((((((((((((((((((((a, b), c), d), e), f), g), h), i), j), k), l), m), n), o), p), q), r), s), t), u), v), x), y), z), aa)) $
-        (xpElemText (nsName "Binding"))
-    <#> (xpElemText (nsName "Brand"))
+        (xpOption $ xpElemText (nsName "Binding"))
+    <#> (xpOption $ xpElemText (nsName "Brand"))
     <#> (xpOption $ xpElemNodes (nsName "CatalogNumberList") $
             xpList $ xpElemText (nsName "CatalogNumberListElement"))
     <#> (xpOption $ xpElemText (nsName "Color"))
-    <#> (xpElemNodes (nsName "EAN") $ xpContent xpPrim)
-    <#> (xpElemNodes (nsName "EANList") $
+    <#> (xpOption $ xpElemNodes (nsName "EAN") $ xpContent xpPrim)
+    <#> (xpOption $ xpElemNodes (nsName "EANList") $
             xpList $ xpElemNodes (nsName "EANListElement") $ xpContent xpPrim)
-    <#> (xpList $ xpElemText (nsName "Feature"))
+    <#> (xpOption $ xpList $ xpElemText (nsName "Feature"))
     <#> (xpOption $ xpElemNodes (nsName "IsAutographed") $ xpContent xpTextBool)
     <#> (xpOption $ xpElemNodes (nsName "IsEligibleForTradeIn") $ xpContent xpTextBool)
     <#> (xpOption $ xpElemNodes (nsName "IsMemorabilia") $ xpContent xpTextBool)
     <#> (xpOption $ xpElemNodes (nsName "ItemDimensions") xpDimensions)
-    <#> (xpElemText (nsName "Label"))
+    <#> (xpOption $ xpElemText (nsName "Label"))
     <#> (xpOption $ xpElemText (nsName "LegalDisclaimer"))
-    <#> (xpElemNodes (nsName "ListPrice") xpListPrice)
+    <#> (xpOption $ xpElemNodes (nsName "ListPrice") xpListPrice)
     <#> (xpOption $ xpElemText (nsName "Manufacturer"))
     <#> (xpOption $ xpElemText (nsName "Model"))
     <#> (xpOption $ xpElemText (nsName "MPN"))
     <#> (xpOption $ xpElemNodes (nsName "NumberOfItems") $ xpContent xpPrim)
-    <#> (xpElemNodes (nsName "PackageDimensions") xpDimensions)
-    <#> (xpElemNodes (nsName "PackageQuantity") $ xpContent xpPrim)
+    <#> (xpOption $ xpElemNodes (nsName "PackageDimensions") xpDimensions)
+    <#> (xpOption $ xpElemNodes (nsName "PackageQuantity") $ xpContent xpPrim)
     <#> (xpOption $ xpElemText (nsName "PartNumber"))
-    <#> (xpElemText (nsName "ProductGroup"))
-    <#> (xpElemText (nsName "ProductTypeName"))
-    <#> (xpElemText (nsName "Title"))
+    <#> (xpOption $ xpElemText (nsName "ProductGroup"))
+    <#> (xpOption $ xpElemText (nsName "ProductTypeName"))
+    <#> (xpOption $ xpElemText (nsName "Title"))
     <#> (xpOption $ xpElemNodes (nsName "UPC") $ xpContent xpPrim)
     <#> (xpOption $ xpElemNodes (nsName "UPCList") $
             xpList $ xpElemNodes (nsName "UPCListElement") $ xpContent xpPrim)

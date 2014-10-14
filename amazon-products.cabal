@@ -1,6 +1,6 @@
 
 name:                amazon-products
-version:             0.1.0.0
+version:             0.2.0.0
 synopsis:            Connector for Amazon Products API
 description:         Allows users to directly access Amazon Products API,
                      without having to work with the underlying REST and

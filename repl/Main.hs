@@ -13,7 +13,7 @@ main = do
     conf <- getSandbox
     {-res  <- runAmazonT conf $ itemLookup "B00F0DD0I6" IdASIN [Images, ItemAttributes] CAll-}
     {-res  <- runAmazonT conf $ itemLookup "B00EV97UD6" IdASIN [Images, ItemAttributes] CAll-}
-    res  <- runAmazonT conf $ itemSearch "jambox" All [ItemAttributes] CAll Nothing Nothing
+    res  <- runAmazonT conf $ itemSearch "jambox" All [ItemAttributes] CAll Nothing Nothing Nothing
     print res
 
 getSandbox :: IO AmazonConf

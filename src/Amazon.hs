@@ -7,6 +7,7 @@
 
 module Amazon
     ( liveConf
+    , ukLiveConf
 
     , AmazonT (..)
     , runAmazonT
@@ -54,6 +55,13 @@ liveConf = AmazonConf $ AmazonEndpoint
                         , endpointHost = "webservices.amazon.com"
                         , endpointPath = "/onca/xml"
                         }
+
+ukLiveConf :: Manager -> AccessID -> AccessSecret -> AssociateTag -> AmazonConf
+ukLiveConf = AmazonConf $ AmazonEndpoint
+                          { endpointURL  = "http://webservices.amazon.co.uk/onca/xml"
+                          , endpointHost = "webservices.amazon.co.uk"
+                          , endpointPath = "/onca/xml"
+                          }
 
 newtype AmazonT a = AmazonT
         { unAmazonT :: ResourceT (ReaderT AmazonConf (ErrorT AmazonFailure IO)) a
